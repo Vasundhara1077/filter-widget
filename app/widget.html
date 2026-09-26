@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://js.zohostatic.com/creator/widgets/version/1.0/widgetsdk-min.js"></script>
+  <title>Zoho Creator Enquiry Form</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    .widget-container {
+      width: 100%;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background-color: #f9f9f9;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .widget-container h1 {
+      text-align: center;
+      color: #333;
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: #555;
+    }
+
+    .select-dropdown {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 20px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 14px;
+      color: #333;
+    }
+
+    #error-message {
+      display: none;
+      color: #ff0000;
+      text-align: center;
+      font-size: 16px;
+      margin-top: 20px;
+    }
+
+    #enquiry-table {
+      width: 100%;
+      margin-top: 30px;
+      border-collapse: collapse;
+      display: none;
+    }
+
+    #enquiry-table table {
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    #enquiry-table th,
+    #enquiry-table td {
+      padding: 12px;
+      text-align: left;
+      border: 1px solid #ccc;
+    }
+
+    #enquiry-table th {
+      background-color: #f4f4f4;
+      color: #333;
+    }
+
+    #enquiry-table tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+
+    #enquiry-table tr:hover {
+      background-color: #f1f1f1;
+    }
+
+    button {
+      padding: 12px 20px;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="widget-container">
+    <div class="dropdown-container">
+      <h1>Vendor Price Comparison</h1>
+      <label for="projectCode">Select Project Code:</label>
+      <select id="projectCode" class="select-dropdown">
+        <option value="">--Select Project Code--</option>
+      </select>
+
+      <label for="equipmentCategory">Select Equipment Category:</label>
+      <select id="equipmentCategory" class="select-dropdown">
+        <option value="">--Select Equipment Category--</option>
+      </select>
+
+      <label for="enquiryNo">Select Enquiry Number:</label>
+      <select id="enquiryNo" class="select-dropdown">
+        <option value="">--Select Enquiry Number--</option>
+      </select>
+    </div>
+
+    <div id="loader" style="display: none;">Loading...</div>
+
+    <div id="enquiry-table" style="display: none;">
+      <table>
+        <thead>
+          <tr></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div id="error-message">No records found</div>
+  </div>
+
+  <script>
+    let allEnquiries = [];
+    let allProjectCodes = [];
+    let allEquipmentCategories = [];
+
+    ZOHO.CREATOR.init().then(function (data) {
+      const enquiryConfig = {
+        appName: "mega-engineering-sales",
+        reportName: "All_Enquiries",
+        criteria: "(ID != null)"
+      };
+
+      ZOHO.CREATOR.API.getAllRecords(enquiryConfig).then(function(response) {
+        if (response && response.data) {
+          allEnquiries = response.data;
+
+          // Populate Enquiry Number dropdown
+          const enquiryNoDropdown = document.getElementById("enquiryNo");
+          const uniqueEnquiryNos = new Set();
+
+          allEnquiries.forEach(record => {
+            const enquiryNo = record.Enquiry_No;
+            const procode = record.Project_Code.ID;
+            const EquipmentCat = record.Equipment_Category[0].ID;
+
+            if (!uniqueEnquiryNos.has(enquiryNo)) {
+              uniqueEnquiryNos.add(enquiryNo);
+              const option = document.createElement("option");
+              option.value = enquiryNo;
+              option.textContent = enquiryNo;
+              enquiryNoDropdown.appendChild(option);
+            }
+          });
+        } else {
+          document.getElementById("error-message").style.display = "block";
+        }
+      }).catch(function(error) {
+        document.getElementById("error-message").style.display = "block";
+      });
+
+      const projectCodeConfig = {
+        appName: "mega-engineering-sales",
+        reportName: "All_Projects",
+        criteria: "(ID != null)"
+      };
+
+      ZOHO.CREATOR.API.getAllRecords(projectCodeConfig).then(function(response) {
+        if (response && response.data) {
+          const projectCodeDropdown = document.getElementById("projectCode");
+          const uniqueProjectCodes = new Set();
+
+          response.data.forEach(record => {
+            const projectID = record.ID;
+            const projectCode = record.Project_Code;
+
+            if (projectCode && !uniqueProjectCodes.has(projectCode)) {
+              uniqueProjectCodes.add(projectCode);
+              const option = document.createElement("option");
+              option.value = projectID;
+              option.textContent = projectCode;
+              projectCodeDropdown.appendChild(option);
+            }
+          });
+        } else {
+          document.getElementById("error-message").style.display = "block";
+        }
+      }).catch(function(error) {
+        document.getElementById("error-message").style.display = "block";
+      });
+
+      // Project Code dropdown change event
+      document.getElementById("projectCode").addEventListener("change", function() {
+        const selectedProjectCode = this.value;
+
+        // Reset Equipment Category dropdown
+        const equipmentCategoryDropdown = document.getElementById("equipmentCategory");
+        equipmentCategoryDropdown.innerHTML = '<option value="">--Select Equipment Category--</option>';
+
+        // Filter equipment categories based on selected project code
+        if (selectedProjectCode) {
+          const uniqueCategories = new Set();
+          allEnquiries.forEach(record => {
+            if (record.Project_Code.ID === selectedProjectCode) {
+              record.Equipment_Category.forEach(category => {
+                if (!uniqueCategories.has(category.display_value)) {
+                  uniqueCategories.add(category.display_value);
+                  const option = document.createElement("option");
+                  option.value = category.ID;
+                  option.textContent = category.display_value;
+                  equipmentCategoryDropdown.appendChild(option);
+                }
+              });
+            }
+          });
+        }
+
+        // Reset Enquiry Number dropdown
+        const enquiryNoDropdown = document.getElementById("enquiryNo");
+        enquiryNoDropdown.innerHTML = '<option value="">--Select Enquiry Number--</option>';
+
+        // Clear the table if any input is deselected
+        clearTable();
+      });
+
+      // Equipment Category dropdown change event
+      document.getElementById("equipmentCategory").addEventListener("change", function() {
+        const selectedProjectCode = document.getElementById("projectCode").value;
+        const selectedEquipmentCategory = this.value;
+
+        // Reset Enquiry Numbers based on selected values
+        const enquiryNoDropdown = document.getElementById("enquiryNo");
+        enquiryNoDropdown.innerHTML = '<option value="">--Select Enquiry Number--</option>';
+
+        const uniqueEnquiryNos = new Set();
+
+        if (selectedProjectCode && selectedEquipmentCategory) {
+          allEnquiries.forEach(record => {
+            if (record.Project_Code.ID === selectedProjectCode) {
+              record.Equipment_Category.forEach(category => {
+                if (category.ID === selectedEquipmentCategory) {
+                  if (!uniqueEnquiryNos.has(record.Enquiry_No)) {
+                    uniqueEnquiryNos.add(record.Enquiry_No);
+                    const option = document.createElement("option");
+                    option.value = record.Enquiry_No;
+                    option.textContent = record.Enquiry_No;
+                    enquiryNoDropdown.appendChild(option);
+                  }
+                }
+              });
+            }
+          });
+        }
+
+        // Clear the table if any input is deselected
+        clearTable();
+      });
+
+      // Enquiry No. dropdown change event
+      document.getElementById("enquiryNo").addEventListener("change", function() {
+        const selectedEnquiryNo = this.value;
+        const enquiryTable = document.getElementById("enquiry-table");
+        const tbody = enquiryTable.querySelector("tbody");
+        tbody.innerHTML = ""; // Clear existing rows
+
+        if (!selectedEnquiryNo) {
+          enquiryTable.style.display = "none"; // Hide table if no Enquiry No selected
+          return;
+        }
+
+        // Filter enquiries based on selected Enquiry No
+        const filteredEnquiries = allEnquiries.filter(record => record.Enquiry_No === selectedEnquiryNo);
+        if (filteredEnquiries.length > 0) {
+          enquiryTable.style.display = "block"; // Show the table
+
+          const vendorNames = [];
+          const vendorTotalAmounts = {};
+
+          // Gather vendor names and total amounts
+          filteredEnquiries.forEach(enquiry => {
+            const vendorName = enquiry.Vendor_Name?.display_value;
+            const totalAmount = parseFloat(enquiry.Total_Amount);
+
+            if (vendorName) {
+              if (!vendorTotalAmounts[vendorName]) {
+                vendorTotalAmounts[vendorName] = 0;
+              }
+              vendorTotalAmounts[vendorName] = totalAmount;
+            }
+          });
+
+          const uniqueVendors = Object.keys(vendorTotalAmounts).sort();
+
+          // Create table headers
+          const headerRow = document.createElement("tr");
+          const boTagHeader = document.createElement("th");
+          boTagHeader.textContent = "Tag No";
+          headerRow.appendChild(boTagHeader);
+
+          uniqueVendors.forEach(vendor => {
+            const th = document.createElement("th");
+            th.textContent = vendor;
+            headerRow.appendChild(th);
+          });
+
+          tbody.appendChild(headerRow);
+
+          // Gather and display unique BO Tags
+          const boTagsSet = new Set();
+          filteredEnquiries.forEach(enquiry => {
+            enquiry.BO_Sheet.forEach(boSheet => {
+              const boTag = boSheet.display_value ? boSheet.display_value.split(' - ').slice(0, 2).join(' - ') : "-";
+              boTagsSet.add(boTag);
+            });
+          });
+
+          const boTags = [...boTagsSet];
+          boTags.forEach(boTag => {
+            const row = document.createElement("tr");
+            row.classList.add('table-row');
+
+            const boTagCell = document.createElement("td");
+            boTagCell.textContent = boTag;
+            row.appendChild(boTagCell);
+
+            uniqueVendors.forEach(vendor => {
+              let unitPrice = "-";
+
+              filteredEnquiries.forEach(enquiry => {
+                if (enquiry.Vendor_Name.display_value === vendor) {
+                  enquiry.BO_Sheet.forEach(boSheet => {
+                    const currentBoTag = boSheet.display_value ? boSheet.display_value.split(' - ').slice(0, 2).join(' - ') : "-";
+                    if (currentBoTag === boTag) {
+                      unitPrice = boSheet.display_value.split(' - ')[2] || "-";
+                    }
+                  });
+                }
+              });
+
+              const cell = document.createElement("td");
+              cell.textContent = unitPrice;
+              row.appendChild(cell);
+            });
+
+            tbody.appendChild(row);
+          });
+
+          // Display total amounts row
+          const totalRow = document.createElement("tr");
+          totalRow.classList.add('table-row');
+
+          const totalLabelCell = document.createElement("td");
+          totalLabelCell.textContent = "Total Amount";
+          totalLabelCell.style.fontWeight = "bold";
+          totalRow.appendChild(totalLabelCell);
+
+          uniqueVendors.forEach(vendor => {
+            const totalAmount = vendorTotalAmounts[vendor] || 0;
+            const cell = document.createElement("td");
+            cell.textContent = totalAmount.toFixed(2);
+            cell.style.fontWeight = "bold";
+            totalRow.appendChild(cell);
+          });
+
+          tbody.appendChild(totalRow);
+        } else {
+          document.getElementById("error-message").style.display = "block"; // Show error if no records found
+        }
+      });
+    });
+
+    // Function to clear the table
+    function clearTable() {
+      const enquiryTable = document.getElementById("enquiry-table");
+      const tbody = enquiryTable.querySelector("tbody");
+      tbody.innerHTML = ""; // Clear the existing table rows
+      enquiryTable.style.display = "none"; // Hide the table
+    }
+  </script>
+</body>
+</html>
